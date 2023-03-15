@@ -54,10 +54,14 @@ impl Wall {
         }
     }
 
-    fn splice(&mut self, point: Vector2<f64>) -> Wall {
-        let p2 = self.p2;
-        self.p2 = point;
-        Wall::new(point, p2)
+    fn splice(&self, point: Vector2<f64>) -> (Wall, Wall) {
+        (Wall::new(self.p1, point), Wall::new(point, self.p2))
+    }
+
+    fn in_front(&self, wall: &Wall) -> bool {
+        let center = (wall.p1 + wall.p2) / 2.0;
+        let diff = center - self.p1;
+        return diff.dot(&self.forward) > 0.0;
     }
 }
 
@@ -94,6 +98,53 @@ impl Map {
 
         out
     }
+    fn generate_tree(&self) -> BSPTree {}
+
+    fn tree_create(walls: &Vec<Wall>) -> Option<BSPTree> {
+        if walls.len() == 0 {
+            return None;
+        }
+        if walls.len() == 1 {
+            return Some(BSPTree {
+                behind: Box::new(None),
+                front: Box::new(None),
+                segment: walls[0],
+            });
+        }
+        let slice_plane = walls[0];
+
+        // splice all walls that need splicing
+        let mut new_walls = vec![];
+        for wall in &walls[1..] {
+            if let Some(intersection) = wall.intersection(&slice_plane) {
+                let spliced = wall.splice(intersection);
+                new_walls.push(spliced.0);
+                new_walls.push(spliced.1);
+            } else {
+                new_walls.push(*wall);
+            }
+        }
+        // calculate front and back walls
+        let mut front = vec![];
+        let mut back = vec![];
+
+        for wall in &new_walls {
+            if slice_plane.in_front(wall) {
+                front.push(*wall);
+            } else {
+                back.push(*wall);
+            }
+        }
+
+        let front_node = None;
+        let back_node = None;
+    }
+}
+
+struct BSPTree {
+    behind: Box<Option<BSPTree>>,
+    front: Box<Option<BSPTree>>,
+    segment: Wall,
 }
 fn main() {
     let map = Map::from_file("./map.txt");
