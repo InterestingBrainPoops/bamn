@@ -63,6 +63,10 @@ impl Wall {
         let diff = center - self.p1;
         return diff.dot(&self.forward) > 0.0;
     }
+    fn in_front_point(&self, point: &Vector2<f64>) -> bool {
+        let diff = point - self.p1;
+        return diff.dot(&self.forward) > 0.0;
+    }
 }
 
 impl Map {
@@ -98,7 +102,9 @@ impl Map {
 
         out
     }
-    fn generate_tree(&self) -> BSPTree {}
+    fn generate_tree(&self) -> Option<BSPTree> {
+        Self::tree_create(&self.walls)
+    }
 
     fn tree_create(walls: &Vec<Wall>) -> Option<BSPTree> {
         if walls.len() == 0 {
@@ -136,18 +142,54 @@ impl Map {
             }
         }
 
-        let front_node = None;
-        let back_node = None;
+        Some(BSPTree {
+            behind: Box::new(Self::tree_create(&back)),
+            front: Box::new(Self::tree_create(&front)),
+            segment: slice_plane,
+        })
     }
 }
 
+#[derive(Debug, Clone)]
 struct BSPTree {
     behind: Box<Option<BSPTree>>,
     front: Box<Option<BSPTree>>,
     segment: Wall,
 }
+
+impl BSPTree {
+    fn get_render_order(&self, camera_pos: Vector2<f64>) -> Vec<Wall> {
+        let mut out = vec![];
+
+        Self::get_render_walls(&Some(self.clone()), &mut out, camera_pos);
+
+        out
+    }
+
+    fn get_render_walls(node: &Option<BSPTree>, out: &mut Vec<Wall>, camera_pos: Vector2<f64>) {
+        if node.is_none() {
+            return;
+        }
+        let node = node.as_ref().unwrap();
+        if !node.segment.in_front_point(&camera_pos) {
+            Self::get_render_walls(&node.behind, out, camera_pos);
+            out.push(node.segment);
+            Self::get_render_walls(&node.front, out, camera_pos);
+        } else {
+            Self::get_render_walls(&node.front, out, camera_pos);
+            out.push(node.segment);
+            Self::get_render_walls(&node.behind, out, camera_pos);
+        }
+    }
+}
 fn main() {
     let map = Map::from_file("./map.txt");
-    println!("{:?}", map.walls[1].intersection(&map.walls[0]));
+    // println!("{:?}", map.walls[1].intersection(&map.walls[0]));
     println!("{:?}", map);
+    let tree = map.generate_tree();
+    println!("{:#?}", tree);
+    let render_order = tree
+        .unwrap()
+        .get_render_order(Vector2::<f64>::new(-1.0, 0.5));
+    println!("{:?}", render_order);
 }
