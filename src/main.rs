@@ -55,7 +55,18 @@ impl Wall {
     }
 
     fn splice(&self, point: Vector2<f64>) -> (Wall, Wall) {
-        (Wall::new(self.p1, point), Wall::new(point, self.p2))
+        (
+            Wall {
+                p1: self.p1,
+                p2: point,
+                forward: self.forward,
+            },
+            Wall {
+                p1: point,
+                p2: self.p2,
+                forward: self.forward,
+            },
+        )
     }
 
     fn in_front(&self, wall: &Wall) -> bool {
@@ -172,13 +183,13 @@ impl BSPTree {
         }
         let node = node.as_ref().unwrap();
         if !node.segment.in_front_point(&camera_pos) {
-            Self::get_render_walls(&node.behind, out, camera_pos);
-            out.push(node.segment);
             Self::get_render_walls(&node.front, out, camera_pos);
+            out.push(node.segment);
+            Self::get_render_walls(&node.behind, out, camera_pos);
         } else {
-            Self::get_render_walls(&node.front, out, camera_pos);
-            out.push(node.segment);
             Self::get_render_walls(&node.behind, out, camera_pos);
+            out.push(node.segment);
+            Self::get_render_walls(&node.front, out, camera_pos);
         }
     }
 }
@@ -186,10 +197,8 @@ fn main() {
     let map = Map::from_file("./map.txt");
     // println!("{:?}", map.walls[1].intersection(&map.walls[0]));
     println!("{:?}", map);
-    let tree = map.generate_tree();
-    println!("{:#?}", tree);
-    let render_order = tree
-        .unwrap()
-        .get_render_order(Vector2::<f64>::new(-1.0, 0.5));
+    let tree = map.generate_tree().unwrap();
+    println!("{:#?}", tree.clone().front.unwrap());
+    let render_order = tree.get_render_order(Vector2::<f64>::new(-0.6, -0.5));
     println!("{:?}", render_order);
 }
